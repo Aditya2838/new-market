@@ -1,0 +1,1683 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Nifty 50 Option Chain Analyzer</title>
+    <style>
+        :root {
+            --bg: #0a0e1a;
+            --card: #0f1420;
+            --header: #13182a;
+            --border: #1e2639;
+            --text: #e5e7eb;
+            --muted: #9ca3af;
+            --accent: #3b82f6;
+            --pos: #10b981;
+            --neg: #ef4444;
+            --neutral: #f59e0b;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .subtitle {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 16px 0;
+        }
+        
+        .metric-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 12px 16px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 4px;
+        }
+        
+        .metric-value {
+            font-size: 20px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .pill {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .pill-ok { background: rgba(16, 185, 129, 0.2); color: var(--pos); border: 1px solid var(--pos); }
+        .pill-partial { background: rgba(245, 158, 11, 0.2); color: var(--neutral); border: 1px solid var(--neutral); }
+        .pill-off { background: rgba(107, 114, 128, 0.2); color: var(--muted); border: 1px solid var(--muted); }
+        .pill-ce { background: rgba(16, 185, 129, 0.2); color: var(--pos); border: 1px solid var(--pos); }
+        .pill-pe { background: rgba(239, 68, 68, 0.2); color: var(--neg); border: 1px solid var(--neg); }
+        
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .bias-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .bias-card {
+            background: var(--card);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .bias-card.bullish { border-color: var(--pos); }
+        .bias-card.bearish { border-color: var(--neg); }
+        .bias-card.neutral { border-color: var(--neutral); }
+        
+        .bias-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .bias-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--muted);
+        }
+        
+        .bias-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .bias-value.bullish { color: var(--pos); }
+        .bias-value.bearish { color: var(--neg); }
+        .bias-value.neutral { color: var(--neutral); }
+        
+        .confidence-bar {
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        
+        .confidence-fill.bullish { background: var(--pos); }
+        .confidence-fill.bearish { background: var(--neg); }
+        .confidence-fill.neutral { background: var(--neutral); }
+        
+        .signals-list {
+            list-style: none;
+            font-size: 13px;
+            color: var(--muted);
+        }
+        
+        .signals-list li {
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .signals-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .trades-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .trades-column {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        
+        .trades-column.ce { border-left: 3px solid var(--pos); }
+        .trades-column.pe { border-left: 3px solid var(--neg); }
+        
+        .trades-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .trades-title.ce { color: var(--pos); }
+        .trades-title.pe { color: var(--neg); }
+        
+        .trades-column ul {
+            list-style: none;
+        }
+        
+        .trades-column li {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .trades-column li.no-trades {
+            color: var(--muted);
+            font-style: italic;
+            text-align: center;
+        }
+        
+        .strike-badge {
+            display: inline-block;
+            background: var(--accent);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
+        .side-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        
+        .side-badge.ce { background: var(--pos); color: white; }
+        .side-badge.pe { background: var(--neg); color: white; }
+        
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        thead th {
+            background: var(--header);
+            color: var(--muted);
+            font-weight: 600;
+            text-align: right;
+            padding: 12px 10px;
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+        
+        tbody td {
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        tbody tr:hover {
+            background: rgba(59, 130, 246, 0.05);
+        }
+        
+        tbody tr.row-buy-ce {
+            background: rgba(16, 185, 129, 0.08);
+        }
+        
+        tbody tr.row-buy-pe {
+            background: rgba(239, 68, 68, 0.08);
+        }
+        
+        .strike-cell {
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .signal-cell {
+            font-weight: 600;
+        }
+        
+        .pos { color: var(--pos); }
+        .neg { color: var(--neg); }
+        
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 400px;
+        }
+        
+        .toast {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .toast.ce { border-left: 4px solid var(--pos); }
+        .toast.pe { border-left: 4px solid var(--neg); }
+        
+        .toast-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .toast-title {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .toast-title.ce { color: var(--pos); }
+        .toast-title.pe { color: var(--neg); }
+        
+        .toast-close {
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 18px;
+            line-height: 1;
+        }
+        
+        .toast-body {
+            font-size: 13px;
+            color: var(--muted);
+        }
+        
+        .scroll-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--accent);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s;
+        }
+        
+        .scroll-top.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .scroll-top:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+        }
+        
+        .indicators-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+        }
+        
+        .indicator-box {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 3px solid var(--accent);
+        }
+        
+        .indicator-name {
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+        
+        .indicator-value {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            font-weight: 600;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+        
+        .tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                🎯 Advanced Nifty 50 Option Chain Analyzer
+                <span class="pill pill-ok">Active</span>
+            </h1>
+            <div class="subtitle">Real-time analysis with advanced technical indicators</div>
+            
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">NIFTY Spot</div>
+                    <div class="metric-value">25,207.30</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">PCR (Weekly)</div>
+                    <div class="metric-value">0.000</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Max Pain (Weekly)</div>
+                    <div class="metric-value">24,750</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Lot Size</div>
+                    <div class="metric-value">75</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bias-grid">
+            <div class="bias-card bullish">
+                <div class="bias-header">
+                    <div class="bias-title">📊 Intraday Bias</div>
+                    <span class="pill-ce pill">Recommend: CE</span>
+                </div>
+                <div class="bias-value bullish">
+                    Bullish (Strong)
+                </div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill bullish" 
+                         style="width: 133.32%"></div>
+                </div>
+                <small>Confidence: 4/3</small>
+                <ul class="signals-list"><li>Price > VWAP (Bullish)</li><li>EMA9 > EMA21 (Bullish)</li><li>RSI 60.7 (Overbought/Strong)</li><li>MACD > Signal (Bullish)</li></ul>
+            </div>
+            
+            <div class="bias-card bullish">
+                <div class="bias-header">
+                    <div class="bias-title">📈 Daily/Swing Bias</div>
+                </div>
+                <div class="bias-value bullish">
+                    Bullish (Strong)
+                </div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill bullish" 
+                         style="width: 99.99%"></div>
+                </div>
+                <small>Confidence: 3/3</small>
+                <ul class="signals-list"><li>Price > EMA50 (Uptrend)</li><li>EMA9 > EMA21 (Short-term Bullish)</li><li>RSI 58.8 (Bullish)</li><li>ADX 4.9 (Weak Trend)</li></ul>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">🎯 Top Trade Recommendations - Weekly (07-Oct-2025)</div>
+            </div>
+            <div class="trades-grid">
+                <div class="trades-column ce">
+                    <div class="trades-title ce">🟢 Best CE Trades</div>
+                    <ul><li class="no-trades">No strong setups currently</li></ul>
+                </div>
+                <div class="trades-column pe">
+                    <div class="trades-title pe">🔴 Best PE Trades</div>
+                    <ul><li class="no-trades">No strong setups currently</li></ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">🎯 Top Trade Recommendations - Monthly (07-Oct-2025)</div>
+            </div>
+            <div class="trades-grid">
+                <div class="trades-column ce">
+                    <div class="trades-title ce">🟢 Best CE Trades</div>
+                    <ul><li class="no-trades">No strong setups currently</li></ul>
+                </div>
+                <div class="trades-column pe">
+                    <div class="trades-title pe">🔴 Best PE Trades</div>
+                    <ul><li class="no-trades">No strong setups currently</li></ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">📊 Technical Indicators</div>
+            </div>
+            <div class="indicators-grid">
+                <div class="indicator-box">
+                    <div class="indicator-name">VWAP</div>
+                    <div class="indicator-value">25,160.00</div>
+                </div>
+                <div class="indicator-box">
+                    <div class="indicator-name">EMA 9 / 21</div>
+                    <div class="indicator-value">25,205.53 / 25,200.66</div>
+                </div>
+                <div class="indicator-box">
+                    <div class="indicator-name">RSI (14)</div>
+                    <div class="indicator-value">60.67</div>
+                </div>
+                <div class="indicator-box">
+                    <div class="indicator-name">MACD</div>
+                    <div class="indicator-value">5.15</div>
+                </div>
+                <div class="indicator-box">
+                    <div class="indicator-name">Bollinger Bands</div>
+                    <div class="indicator-value" style="font-size: 14px;">
+                        U: 25,221.10<br>
+                        L: 25,173.77
+                    </div>
+                </div>
+                <div class="indicator-box">
+                    <div class="indicator-name">ATR (14) / ADX</div>
+                    <div class="indicator-value">6.81 / 61.02</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="toolbar">
+                <div class="tabs" id="expiryTabs">
+                    <button class="tab active" data-tab="weekly">Weekly (07-Oct-2025)</button>
+                    <button class="tab" data-tab="monthly">Monthly (07-Oct-2025)</button>
+                </div>
+                <button class="btn" onclick="refreshData()">🔄 Refresh</button>
+            </div>
+            
+            <div id="weekly" class="tab-content active">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Strike</th>
+                                <th>CE OI</th>
+                                <th>CE Δ OI</th>
+                                <th>CE LTP</th>
+                                <th>CE Vol</th>
+                                <th>CE IV%</th>
+                                <th>Entry</th>
+                                <th>Exit</th>
+                                <th>SL</th>
+                                <th>PE OI</th>
+                                <th>PE Δ OI</th>
+                                <th>PE LTP</th>
+                                <th>PE Vol</th>
+                                <th>PE IV%</th>
+                                <th>Entry</th>
+                                <th>Exit</th>
+                                <th>SL</th>
+                                <th>Signal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                <tr class="" data-strike="24750.0" data-signal="HOLD">
+                    <td class="strike-cell">24,750</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="24800.0" data-signal="HOLD">
+                    <td class="strike-cell">24,800</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="24850.0" data-signal="HOLD">
+                    <td class="strike-cell">24,850</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="24900.0" data-signal="HOLD">
+                    <td class="strike-cell">24,900</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="24950.0" data-signal="HOLD">
+                    <td class="strike-cell">24,950</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25000.0" data-signal="HOLD">
+                    <td class="strike-cell">25,000</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25050.0" data-signal="HOLD">
+                    <td class="strike-cell">25,050</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25100.0" data-signal="HOLD">
+                    <td class="strike-cell">25,100</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25150.0" data-signal="HOLD">
+                    <td class="strike-cell">25,150</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25200.0" data-signal="HOLD">
+                    <td class="strike-cell">25,200</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25250.0" data-signal="HOLD">
+                    <td class="strike-cell">25,250</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25300.0" data-signal="HOLD">
+                    <td class="strike-cell">25,300</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25350.0" data-signal="HOLD">
+                    <td class="strike-cell">25,350</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25400.0" data-signal="HOLD">
+                    <td class="strike-cell">25,400</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25450.0" data-signal="HOLD">
+                    <td class="strike-cell">25,450</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25500.0" data-signal="HOLD">
+                    <td class="strike-cell">25,500</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25550.0" data-signal="HOLD">
+                    <td class="strike-cell">25,550</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25600.0" data-signal="HOLD">
+                    <td class="strike-cell">25,600</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25650.0" data-signal="HOLD">
+                    <td class="strike-cell">25,650</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25700.0" data-signal="HOLD">
+                    <td class="strike-cell">25,700</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div id="monthly" class="tab-content">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Strike</th>
+                                <th>CE OI</th>
+                                <th>CE Δ OI</th>
+                                <th>CE LTP</th>
+                                <th>CE Vol</th>
+                                <th>CE IV%</th>
+                                <th>Entry</th>
+                                <th>Exit</th>
+                                <th>SL</th>
+                                <th>PE OI</th>
+                                <th>PE Δ OI</th>
+                                <th>PE LTP</th>
+                                <th>PE Vol</th>
+                                <th>PE IV%</th>
+                                <th>Entry</th>
+                                <th>Exit</th>
+                                <th>SL</th>
+                                <th>Signal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                <tr class="" data-strike="24750.0" data-signal="HOLD">
+                    <td class="strike-cell">24,750</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="24800.0" data-signal="HOLD">
+                    <td class="strike-cell">24,800</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="24850.0" data-signal="HOLD">
+                    <td class="strike-cell">24,850</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="24900.0" data-signal="HOLD">
+                    <td class="strike-cell">24,900</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="24950.0" data-signal="HOLD">
+                    <td class="strike-cell">24,950</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25000.0" data-signal="HOLD">
+                    <td class="strike-cell">25,000</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25050.0" data-signal="HOLD">
+                    <td class="strike-cell">25,050</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25100.0" data-signal="HOLD">
+                    <td class="strike-cell">25,100</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25150.0" data-signal="HOLD">
+                    <td class="strike-cell">25,150</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25200.0" data-signal="HOLD">
+                    <td class="strike-cell">25,200</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25250.0" data-signal="HOLD">
+                    <td class="strike-cell">25,250</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25300.0" data-signal="HOLD">
+                    <td class="strike-cell">25,300</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25350.0" data-signal="HOLD">
+                    <td class="strike-cell">25,350</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25400.0" data-signal="HOLD">
+                    <td class="strike-cell">25,400</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25450.0" data-signal="HOLD">
+                    <td class="strike-cell">25,450</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25500.0" data-signal="HOLD">
+                    <td class="strike-cell">25,500</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25550.0" data-signal="HOLD">
+                    <td class="strike-cell">25,550</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25600.0" data-signal="HOLD">
+                    <td class="strike-cell">25,600</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25650.0" data-signal="HOLD">
+                    <td class="strike-cell">25,650</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                <tr class="" data-strike="25700.0" data-signal="HOLD">
+                    <td class="strike-cell">25,700</td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>0</td>
+                    <td class="">0</td>
+                    <td>0.00</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="signal-cell ">HOLD</td>
+                </tr>
+                
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">📚 Trading Guide</div>
+            </div>
+            <div style="color: var(--muted); font-size: 14px; line-height: 1.8;">
+                <h3 style="color: var(--text); margin-bottom: 12px;">Entry Rules</h3>
+                <ul style="margin-left: 20px; margin-bottom: 20px;">
+                    <li>✅ Enter when BUY CE/PE signal appears with bias confirmation</li>
+                    <li>✅ Preferred entry windows: 09:30-11:00 AM or 13:30-15:00</li>
+                    <li>✅ Verify OI buildup: CE OI rising = bullish | PE OI rising = bearish</li>
+                    <li>✅ Use VWAP as dynamic support/resistance</li>
+                    <li>✅ Check daily bias alignment for stronger conviction</li>
+                </ul>
+                
+                <h3 style="color: var(--text); margin-bottom: 12px;">Exit Strategy</h3>
+                <ul style="margin-left: 20px; margin-bottom: 20px;">
+                    <li>🎯 Target: 5% profit (adjust based on volatility)</li>
+                    <li>🛑 Stoploss: 3% loss (strict adherence required)</li>
+                    <li>⏰ Time-based exit: Close all positions by 15:10-15:20</li>
+                    <li>📊 Trail SL once 3% profit achieved</li>
+                </ul>
+                
+                <h3 style="color: var(--text); margin-bottom: 12px;">Risk Management</h3>
+                <ul style="margin-left: 20px;">
+                    <li>💰 Risk only 1-2% of capital per trade</li>
+                    <li>📉 Max 3 trades per day (avoid overtrading)</li>
+                    <li>⚠️ High PCR (>1.3) = Market bottom | Low PCR (<0.7) = Market top</li>
+                    <li>🎲 Never average losing positions</li>
+                    <li>📱 Set price alerts for entry/exit levels</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast-container" id="toastContainer"></div>
+    <div class="scroll-top" id="scrollTop">↑</div>
+    
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const target = tab.dataset.tab;
+                
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(target).classList.add('active');
+            });
+        });
+        
+        // Scroll to top
+        const scrollTop = document.getElementById('scrollTop');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 300) {
+                scrollTop.classList.add('visible');
+            } else {
+                scrollTop.classList.remove('visible');
+            }
+        });
+        
+        scrollTop.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        
+        // Refresh data
+        function refreshData() {
+            location.reload();
+        }
+        
+        # Auto refresh (increased interval)
+        setTimeout(() => {
+            refreshData();
+        }, 10000);
+        
+        // Signal detection and alerts
+        function showToast(type, strike, entry, exit, sl) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type.toLowerCase()}`;
+            
+            const typeText = type === 'CE' ? '🟢 BUY CE' : '🔴 BUY PE';
+            const typeClass = type === 'CE' ? 'ce' : 'pe';
+            
+            toast.innerHTML = `
+                <div class="toast-header">
+                    <div class="toast-title ${typeClass}">${typeText} Alert</div>
+                    <span class="toast-close" onclick="this.parentElement.parentElement.remove()">×</span>
+                </div>
+                <div class="toast-body">
+                    <strong>Strike:</strong> ${strike}<br>
+                    <strong>Entry:</strong> ${entry} | <strong>Exit:</strong> ${exit} | <strong>SL:</strong> ${sl}
+                </div>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 7000);
+        }
+        
+        // Check for new signals on page load
+        function scanForSignals() {
+            const alerted = JSON.parse(localStorage.getItem('alerted_strikes') || '{}');
+            const today = new Date().toDateString();
+            
+            if (alerted.date !== today) {
+                localStorage.setItem('alerted_strikes', JSON.stringify({ date: today, strikes: [] }));
+                alerted.strikes = [];
+            }
+            
+            document.querySelectorAll('tbody tr').forEach(row => {
+                const signal = row.dataset.signal;
+                const strike = row.dataset.strike;
+                
+                if ((signal === 'BUY CE' || signal === 'BUY PE') && !alerted.strikes.includes(strike)) {
+                    const cells = row.querySelectorAll('td');
+                    const entry = signal === 'BUY CE' ? cells[6].textContent : cells[14].textContent;
+                    const exit = signal === 'BUY CE' ? cells[7].textContent : cells[15].textContent;
+                    const sl = signal === 'BUY CE' ? cells[8].textContent : cells[16].textContent;
+                    
+                    showToast(signal.split(' ')[1], strike, entry, exit, sl);
+                    alerted.strikes.push(strike);
+                    localStorage.setItem('alerted_strikes', JSON.stringify(alerted));
+                }
+            });
+        }
+        
+        // Run scan after delay
+        setTimeout(scanForSignals, 1000);
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'r' && e.ctrlKey) {
+                e.preventDefault();
+                refreshData();
+            }
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.toast').forEach(t => t.remove());
+            }
+        });
+    </script>
+</body>
+</html>

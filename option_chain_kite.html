@@ -1,0 +1,242 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nifty 50 Option Chain - Kite</title>
+  <style>
+    :root { --bg: #0b1020; --card: #0f172a; --muted: #94a3b8; --border: #1f2937; --header: #111827; --text: #e2e8f0; --accent: #2563eb; --pos: #16a34a; --neg: #ef4444; }
+    html, body { height: 100%; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; background: var(--bg); color: var(--text); }
+    .container { max-width: 1180px; margin: 0 auto; padding: 24px; }
+    h1 { margin: 0; font-size: 22px; }
+    .subtitle { margin-top: 6px; color: var(--muted); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 22px rgba(0,0,0,0.25); overflow: hidden; }
+    .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; background: var(--header); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 2; }
+    .btn { background: var(--accent); color: white; border: 0; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+    .pill { display: inline-block; background: #1e293b; color: #93c5fd; padding: 2px 8px; border-radius: 999px; font-size: 12px; margin-left: 8px; }
+    .pill-ok { background: rgba(16,185,129,0.14); color: #22c55e; border: 1px solid rgba(34,197,94,0.35); }
+    .pill-partial { background: rgba(234,179,8,0.14); color: #f59e0b; border: 1px solid rgba(245,158,11,0.35); }
+    .pill-off { background: rgba(75,85,99,0.14); color: #9ca3af; border: 1px solid rgba(107,114,128,0.35); }
+    .pill-ce { background: rgba(16,185,129,0.18); color: #34d399; border: 1px solid rgba(16,185,129,0.35); }
+    .pill-pe { background: rgba(239,68,68,0.18); color: #f87171; border: 1px solid rgba(239,68,68,0.35); }
+    .price { display:inline-block; margin-top:6px; padding: 2px 10px; border-radius: 999px; background: #0b1220; border: 1px solid var(--border); color: #e2e8f0; font-variant-numeric: tabular-nums; }
+    select { background: #0b1220; color: #e2e8f0; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
+    .topwrap { padding: 12px 16px; background: #0b1220; border-bottom: 1px solid var(--border); }
+    .topbox { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .topcol { background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+    .toptitle { font-weight: 600; margin-bottom: 8px; }
+    .topcol ul { margin: 0; padding-left: 18px; }
+    .strike { font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    thead th { position: sticky; top: 56px; background: var(--header); color: #cbd5e1; text-align: right; font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    thead th:first-child, tbody td:first-child { text-align: right; }
+    tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; font-variant-numeric: tabular-nums; }
+    tbody tr:nth-child(2n) { background: rgba(255,255,255,0.02); }
+    tbody tr:hover { background: rgba(37, 99, 235, 0.08); }
+    .pos { color: var(--pos); }
+    .neg { color: var(--neg); }
+    .row-buy-ce { background: rgba(22, 163, 74, 0.10); }
+    .row-buy-pe { background: rgba(239, 68, 68, 0.10); }
+    .hidden { display: none; }
+    .indicators { padding: 16px; }
+    .indicators h3 { margin: 12px 0; font-size: 16px; color: #cbd5e1; }
+    .indicators ul { margin: 0; padding-left: 18px; color: #94a3b8; }
+    .toast-wrap { position: fixed; right: 16px; top: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+    .toast { background: #0f172a; border: 1px solid var(--pos); color: #e2e8f0; padding: 10px 12px; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.35); min-width: 260px; position: relative; }
+    .toast h4 { margin: 0 0 6px 0; color: var(--pos); font-size: 14px; padding-right: 18px; }
+    .toast .close { position: absolute; top: 8px; right: 10px; cursor: pointer; color: #94a3b8; }
+    .toast .small { color: #94a3b8; font-size: 12px; }
+    .toast.pe { border-color: var(--neg); }
+    .toast.pe h4 { color: var(--neg); }
+    .toast.info { border-color: #4b5563; }
+    .toast.info h4 { color: #9ca3af; }
+    .best-calls { margin: 10px 16px; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+    .best-calls.pos { border-color: rgba(22, 163, 74, 0.55); }
+    .best-calls.neg { border-color: rgba(239, 68, 68, 0.55); }
+    .best-calls.info { border-color: #4b5563; }
+    .top-pick { margin: 10px 16px; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+    .top-pick.pos { border-color: rgba(22, 163, 74, 0.65); }
+    .top-pick.neg { border-color: rgba(239, 68, 68, 0.65); }
+    .to-top { position: fixed; right: 18px; bottom: 18px; z-index: 10000; background: #0f172a; color: #e2e8f0; border: 1px solid var(--border); border-radius: 999px; padding: 8px 12px; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,0.35); }
+    .to-top:hover { background: #111827; }
+    .ind-h3 { margin: 12px 0; font-size: 16px; }
+    .ind-h3.ok { color: #34d399; }
+    .ind-h3.partial { color: #f59e0b; }
+    .ind-h3.off { color: #9ca3af; }
+  </style>
+  <script>
+    function refreshPage() { location.reload(); }
+    setTimeout(refreshPage, 12000);
+
+    function getAlertedSet(key) {
+      try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); } catch(e) { return new Set(); }
+    }
+    function saveAlertedSet(key, set) {
+      localStorage.setItem(key, JSON.stringify(Array.from(set)));
+    }
+    function clearAlerted() {
+      localStorage.removeItem('alerted_buy_ce');
+      localStorage.removeItem('alerted_buy_pe');
+    }
+    function showToast(html, type) {
+      const wrap = document.querySelector('.toast-wrap') || (function(){
+        const d = document.createElement('div'); d.className = 'toast-wrap'; document.body.appendChild(d); return d;
+      })();
+      let klass = 'toast';
+      if (type==='PE') klass += ' pe';
+      if (type==='INFO') klass += ' info';
+      const t = document.createElement('div'); t.className = klass;
+      t.innerHTML = '<span class="close" title="Close">&times;</span>' + html;
+      const closeBtn = t.querySelector('.close');
+      closeBtn.addEventListener('click', function(){ t.remove(); });
+      wrap.appendChild(t);
+      setTimeout(()=> { t.remove(); }, 7000);
+    }
+    function runScan(force) {
+      if (force) clearAlerted();
+      scanForBuyCEAlerts();
+    }
+    function getHeaderIndexMap() {
+      const ths = document.querySelectorAll('#weeklyTable thead th');
+      const map = {};
+      ths.forEach((th, i) => { map[(th.innerText||'').trim()] = i; });
+      return map;
+    }
+    function scanForBuyCEAlerts() {
+      const rows = document.querySelectorAll('#weeklyTable tbody tr');
+      if (!rows.length) return;
+      const idx = getHeaderIndexMap();
+      const strikeIdx = idx['strikePrice'] ?? 0;
+      const sigIdx = idx['Signal'];
+      const entryIdx = idx['Entry_Price'];
+      const exitIdx = idx['Exit_Price'];
+      const slIdx = idx['Stoploss'];
+      const usedIdx = idx['Used_Indicators'];
+      const alertedCE = getAlertedSet('alerted_buy_ce');
+      const alertedPE = getAlertedSet('alerted_buy_pe');
+      let alerts = 0;
+      rows.forEach((tr) => {
+        const tds = tr.querySelectorAll('td');
+        if (!tds.length || sigIdx == null) return;
+        const strike = (tds[strikeIdx]?.innerText || '').trim();
+        const signal = (tds[sigIdx]?.innerText || '').trim();
+        const entry = (tds[entryIdx]?.innerText || '').trim();
+        const exitp = (tds[exitIdx]?.innerText || '').trim();
+        const sl = (tds[slIdx]?.innerText || '').trim();
+        const used = (tds[usedIdx]?.innerText || '').trim();
+        if (signal === 'BUY CE') {
+          const key = 'CE|' + strike;
+          if (!alertedCE.has(key) && alerts < 5) {
+            showToast('<h4>BUY CE alert</h4>' +
+                      '<div>Strike: <b>'+strike+'</b></div>'+
+                      '<div class="small">Entry: '+entry+' · Exit: '+exitp+' · SL: '+sl+'</div>'+
+                      '<div class="small">Indicators: '+used+'</div>', 'CE');
+            alertedCE.add(key);
+            alerts++;
+          }
+        } else if (signal === 'BUY PE') {
+          const key = 'PE|' + strike;
+          if (!alertedPE.has(key) && alerts < 5) {
+            showToast('<h4>BUY PE alert</h4>' +
+                      '<div>Strike: <b>'+strike+'</b></div>'+
+                      '<div class="small">Entry: '+entry+' · Exit: '+exitp+' · SL: '+sl+'</div>'+
+                      '<div class="small">Indicators: '+used+'</div>', 'PE');
+            alertedPE.add(key);
+            alerts++;
+          }
+        }
+      });
+      if (alerts > 0) {
+        saveAlertedSet('alerted_buy_ce', alertedCE);
+        saveAlertedSet('alerted_buy_pe', alertedPE);
+      } else {
+        showToast('<h4>No new signals</h4><div class="small">Try again later or press Refresh to force scan.</div>', 'INFO');
+      }
+    }
+    document.addEventListener('click', function(e){
+      const target = e.target;
+      if (target && target.classList && target.classList.contains('close')) {
+        const t = target.closest('.toast');
+        if (t) t.remove();
+      }
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.toast').forEach((t)=> t.remove());
+      }
+    });
+    window.addEventListener('DOMContentLoaded', function(){
+      setTimeout(()=> runScan(false), 150);
+      const topBtn = document.getElementById('toTopBtn');
+      function toggleTopBtn() {
+        if (!topBtn) return;
+        if (window.scrollY > 200) topBtn.classList.remove('hidden'); else topBtn.classList.add('hidden');
+      }
+      window.addEventListener('scroll', toggleTopBtn);
+      if (topBtn) {
+        topBtn.addEventListener('click', function() { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+      }
+      toggleTopBtn();
+    });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="toolbar">
+        <div>
+          <h1>Nifty 50 Option Chain - Kite <span class="pill">Live snapshot</span></h1>
+          <div class="subtitle">Strike, OI, change in OI, LTP, entry/exit/SL</div>
+          <div class="price">NIFTY: 25,155.30</div>
+          <div class="price">VWAP: N/A</div>
+          <div class="price">EMA9/21: N/A / N/A</div>
+          <div class="price">RSI14: N/A</div>
+          <div class="price">Bias: N/A </div>
+          <div class="price">Lot: 75</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <span class="pill">Weekly: 07-Oct-2025</span>
+          <span class="pill pill-off">Indicators: Off</span>
+          
+          <span class="pill pill-ce">Daily: Bullish (conf 3/3)</span>
+          <button class="btn" onclick="runScan(true)">Refresh</button>
+        </div>
+      </div>
+      <div class="top-pick neg"><div class="toptitle">Top intraday call</div><div><span class="strike">25,100</span> · PE · Entry: 13.90 · Exit: 14.60 · SL: 13.48 · score: 28,985.74</div></div>
+      
+      <div id="weeklyTop" class="topwrap">
+    <div class="topbox">
+      <div class="topcol">
+        <div class="toptitle pos">Best CE trades (weekly)</div>
+        <ul><li><span class="strike">25,200</span> · CE Entry: 20.80 · Exit: 21.84 · SL: 20.18 · Lot: 75 · score: 24,252.09</li><li><span class="strike">25,100</span> · CE Entry: 80.15 · Exit: 84.16 · SL: 77.75 · Lot: 75 · score: 18,814.24</li><li><span class="strike">25,250</span> · CE Entry: 8.60 · Exit: 9.03 · SL: 8.34 · Lot: 75 · score: 17,495.21</li><li><span class="strike">25,150</span> · CE Entry: 44.20 · Exit: 46.41 · SL: 42.87 · Lot: 75 · score: 16,000.59</li><li><span class="strike">25,300</span> · CE Entry: 3.85 · Exit: 4.04 · SL: 3.73 · Lot: 75 · score: 10,621.86</li></ul>
+      </div>
+      <div class="topcol">
+        <div class="toptitle neg">Best PE trades (weekly)</div>
+        <ul><li><span class="strike">25,100</span> · PE Entry: 13.90 · Exit: 14.60 · SL: 13.48 · Lot: 75 · score: 28,985.74</li><li><span class="strike">25,150</span> · PE Entry: 28.50 · Exit: 29.93 · SL: 27.64 · Lot: 75 · score: 25,230.54</li><li><span class="strike">25,200</span> · PE Entry: 55.00 · Exit: 57.75 · SL: 53.35 · Lot: 75 · score: 20,457.16</li><li><span class="strike">25,050</span> · PE Entry: 6.80 · Exit: 7.14 · SL: 6.60 · Lot: 75 · score: 12,143.76</li><li><span class="strike">25,000</span> · PE Entry: 4.00 · Exit: 4.20 · SL: 3.88 · Lot: 75 · score: 10,807.96</li></ul>
+      </div>
+    </div>
+    </div>
+      <table id="weeklyTable">
+        <thead><tr><th>strikePrice</th><th>CE_OI</th><th>CE_Chg_OI</th><th>CE_LTP</th><th>PE_OI</th><th>PE_Chg_OI</th><th>PE_LTP</th><th>Entry_Price</th><th>Exit_Price</th><th>Stoploss</th><th>Entry_Window</th><th>Exit_Window</th><th>Used_Indicators</th><th>Signal</th></tr></thead>
+        <tbody>
+          <tr class="row-buy-pe"><td>22,850</td><td>225</td><td></td><td>2,221.90</td><td>3,141,300</td><td class="pos">1,650,300</td><td>0.35</td><td>2,221.90</td><td>2,333.00</td><td>2,155.24</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(PE), OI↓/flat(CE)</td><td class="neg">BUY PE</td></tr><tr class=""><td>22,900</td><td>3,600</td><td class="pos">3,075</td><td>2,287.30</td><td>1,230,000</td><td class="pos">583,050</td><td>0.40</td><td>2,287.30</td><td>2,401.67</td><td>2,218.68</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class="row-buy-pe"><td>22,950</td><td>0</td><td></td><td>0.00</td><td>214,875</td><td class="pos">69,150</td><td>0.40</td><td></td><td></td><td></td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(PE), OI↓/flat(CE)</td><td class="neg">BUY PE</td></tr><tr class=""><td>23,000</td><td>21,450</td><td class="pos">3,450</td><td>2,160.00</td><td>2,112,900</td><td class="pos">1,277,925</td><td>0.45</td><td>2,160.00</td><td>2,268.00</td><td>2,095.20</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class="row-buy-pe"><td>23,050</td><td>0</td><td></td><td>0.00</td><td>153,300</td><td class="pos">62,625</td><td>0.45</td><td></td><td></td><td></td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(PE), OI↓/flat(CE)</td><td class="neg">BUY PE</td></tr><tr class="row-buy-pe"><td>23,100</td><td>75</td><td></td><td>1,590.00</td><td>620,400</td><td class="pos">128,550</td><td>0.40</td><td>1,590.00</td><td>1,669.50</td><td>1,542.30</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(PE), OI↓/flat(CE)</td><td class="neg">BUY PE</td></tr><tr class="row-buy-pe"><td>23,150</td><td>0</td><td></td><td>1,985.25</td><td>157,500</td><td class="pos">35,250</td><td>0.45</td><td>1,985.25</td><td>2,084.51</td><td>1,925.69</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(PE), OI↓/flat(CE)</td><td class="neg">BUY PE</td></tr><tr class="row-buy-pe"><td>23,200</td><td>1,500</td><td>0</td><td>1,900.00</td><td>762,750</td><td class="pos">212,700</td><td>0.45</td><td>1,900.00</td><td>1,995.00</td><td>1,843.00</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(PE), OI↓/flat(CE)</td><td class="neg">BUY PE</td></tr><tr class="row-buy-pe"><td>23,250</td><td>75</td><td></td><td>1,624.55</td><td>477,075</td><td class="pos">116,775</td><td>0.45</td><td>1,624.55</td><td>1,705.78</td><td>1,575.81</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(PE), OI↓/flat(CE)</td><td class="neg">BUY PE</td></tr><tr class=""><td>23,300</td><td>150</td><td class="pos">150</td><td>1,865.00</td><td>742,050</td><td class="pos">433,200</td><td>0.45</td><td>1,865.00</td><td>1,958.25</td><td>1,809.05</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class="row-buy-pe"><td>23,350</td><td>0</td><td></td><td>0.00</td><td>301,200</td><td class="pos">53,175</td><td>0.45</td><td></td><td></td><td></td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(PE), OI↓/flat(CE)</td><td class="neg">BUY PE</td></tr><tr class="row-buy-pe"><td>23,400</td><td>300</td><td></td><td>1,684.00</td><td>2,253,300</td><td class="pos">722,925</td><td>0.50</td><td>1,684.00</td><td>1,768.20</td><td>1,633.48</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(PE), OI↓/flat(CE)</td><td class="neg">BUY PE</td></tr><tr class=""><td>23,450</td><td>375</td><td class="pos">75</td><td>1,660.00</td><td>3,122,700</td><td class="pos">239,100</td><td>0.55</td><td>1,660.00</td><td>1,743.00</td><td>1,610.20</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>23,500</td><td>28,350</td><td class="pos">600</td><td>1,684.20</td><td>4,492,050</td><td class="pos">942,300</td><td>0.50</td><td>1,684.20</td><td>1,768.41</td><td>1,633.67</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>23,550</td><td>525</td><td class="pos">375</td><td>1,640.00</td><td>572,325</td><td class="pos">96,600</td><td>0.55</td><td>1,640.00</td><td>1,722.00</td><td>1,590.80</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class="row-buy-pe"><td>23,600</td><td>2,175</td><td>0</td><td>1,578.30</td><td>2,421,300</td><td class="pos">748,200</td><td>0.50</td><td>1,578.30</td><td>1,657.21</td><td>1,530.95</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(PE), OI↓/flat(CE)</td><td class="neg">BUY PE</td></tr><tr class=""><td>23,650</td><td>600</td><td class="pos">150</td><td>1,535.90</td><td>976,125</td><td class="pos">94,425</td><td>0.50</td><td>1,535.90</td><td>1,612.70</td><td>1,489.82</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>23,700</td><td>7,350</td><td class="pos">450</td><td>1,473.15</td><td>2,832,600</td><td class="pos">593,550</td><td>0.45</td><td>1,473.15</td><td>1,546.81</td><td>1,428.96</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class="row-buy-pe"><td>23,750</td><td>975</td><td>0</td><td>1,383.45</td><td>744,300</td><td class="pos">261,150</td><td>0.60</td><td>1,383.45</td><td>1,452.62</td><td>1,341.95</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(PE), OI↓/flat(CE)</td><td class="neg">BUY PE</td></tr><tr class=""><td>23,800</td><td>5,025</td><td class="pos">375</td><td>1,392.00</td><td>4,064,175</td><td class="pos">777,675</td><td>0.50</td><td>1,392.00</td><td>1,461.60</td><td>1,350.24</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class="row-buy-pe"><td>23,850</td><td>1,125</td><td>0</td><td>1,288.10</td><td>874,350</td><td class="pos">394,725</td><td>0.60</td><td>1,288.10</td><td>1,352.50</td><td>1,249.46</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(PE), OI↓/flat(CE)</td><td class="neg">BUY PE</td></tr><tr class="row-buy-pe"><td>23,900</td><td>9,525</td><td>0</td><td>1,277.00</td><td>3,063,375</td><td class="pos">613,575</td><td>0.60</td><td>1,277.00</td><td>1,340.85</td><td>1,238.69</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(PE), OI↓/flat(CE)</td><td class="neg">BUY PE</td></tr><tr class="row-buy-pe"><td>23,950</td><td>4,425</td><td>0</td><td>1,140.00</td><td>909,450</td><td class="pos">190,275</td><td>0.55</td><td>1,140.00</td><td>1,197.00</td><td>1,105.80</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(PE), OI↓/flat(CE)</td><td class="neg">BUY PE</td></tr><tr class=""><td>24,000</td><td>84,150</td><td class="pos">41,025</td><td>1,160.00</td><td>10,636,725</td><td class="pos">696,975</td><td>0.55</td><td>1,160.00</td><td>1,218.00</td><td>1,125.20</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,050</td><td>11,250</td><td class="pos">2,550</td><td>1,134.05</td><td>1,939,500</td><td class="pos">747,525</td><td>0.60</td><td>1,134.05</td><td>1,190.75</td><td>1,100.03</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,100</td><td>26,325</td><td class="pos">1,725</td><td>1,077.85</td><td>4,795,800</td><td class="pos">1,027,425</td><td>0.55</td><td>1,077.85</td><td>1,131.74</td><td>1,045.51</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,150</td><td>8,400</td><td class="pos">825</td><td>1,023.10</td><td>2,042,250</td><td class="pos">799,875</td><td>0.60</td><td>1,023.10</td><td>1,074.26</td><td>992.41</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,200</td><td>34,050</td><td class="pos">14,100</td><td>968.15</td><td>5,393,175</td><td class="pos">754,800</td><td>0.60</td><td>968.15</td><td>1,016.56</td><td>939.11</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,250</td><td>15,300</td><td class="pos">6,375</td><td>927.20</td><td>1,743,225</td><td class="pos">252,375</td><td>0.65</td><td>927.20</td><td>973.56</td><td>899.38</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,300</td><td>39,750</td><td class="pos">23,850</td><td>880.50</td><td>5,755,275</td><td class="pos">613,800</td><td>0.65</td><td>880.50</td><td>924.53</td><td>854.08</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,350</td><td>16,200</td><td class="pos">16,875</td><td>824.35</td><td>3,056,700</td><td class="pos">2,054,325</td><td>0.70</td><td>824.35</td><td>865.57</td><td>799.62</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,400</td><td>109,500</td><td class="pos">10,500</td><td>772.15</td><td>7,814,250</td><td class="pos">2,395,575</td><td>0.70</td><td>772.15</td><td>810.76</td><td>748.99</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,450</td><td>89,025</td><td class="pos">2,775</td><td>720.60</td><td>3,531,750</td><td class="pos">700,650</td><td>0.75</td><td>720.60</td><td>756.63</td><td>698.98</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,500</td><td>831,150</td><td class="pos">67,875</td><td>664.80</td><td>15,482,025</td><td class="pos">4,384,800</td><td>0.85</td><td>664.80</td><td>698.04</td><td>644.86</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,550</td><td>129,750</td><td class="pos">7,275</td><td>606.00</td><td>4,719,825</td><td class="pos">1,566,825</td><td>0.90</td><td>606.00</td><td>636.30</td><td>587.82</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,600</td><td>741,300</td><td class="pos">70,200</td><td>565.00</td><td>13,759,425</td><td class="pos">2,947,950</td><td>0.90</td><td>565.00</td><td>593.25</td><td>548.05</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,650</td><td>577,125</td><td class="pos">57,300</td><td>507.85</td><td>8,942,775</td><td class="pos">2,270,025</td><td>1.10</td><td>507.85</td><td>533.24</td><td>492.61</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,700</td><td>1,739,325</td><td class="pos">177,000</td><td>466.75</td><td>14,264,025</td><td class="pos">3,620,025</td><td>1.10</td><td>466.75</td><td>490.09</td><td>452.75</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,750</td><td>806,850</td><td class="pos">161,475</td><td>415.85</td><td>8,019,300</td><td class="pos">958,800</td><td>1.30</td><td>415.85</td><td>436.64</td><td>403.37</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,800</td><td>1,538,625</td><td class="pos">810,375</td><td>367.20</td><td>11,806,650</td><td class="pos">1,874,100</td><td>1.40</td><td>367.20</td><td>385.56</td><td>356.18</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,850</td><td>1,209,825</td><td class="pos">122,475</td><td>316.70</td><td>7,710,600</td><td class="pos">1,909,125</td><td>1.55</td><td>316.70</td><td>332.54</td><td>307.20</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,900</td><td>1,692,900</td><td class="pos">998,850</td><td>268.75</td><td>14,356,350</td><td class="pos">4,016,850</td><td>1.90</td><td>268.75</td><td>282.19</td><td>260.69</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>24,950</td><td>961,500</td><td class="pos">1,106,925</td><td>218.05</td><td>10,896,975</td><td class="pos">3,978,000</td><td>2.60</td><td>218.05</td><td>228.95</td><td>211.51</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,000</td><td>4,671,375</td><td class="pos">3,949,725</td><td>170.20</td><td>24,429,300</td><td class="pos">10,814,175</td><td>4.00</td><td>170.20</td><td>178.71</td><td>165.09</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,050</td><td>3,819,450</td><td class="pos">4,792,200</td><td>122.80</td><td>18,674,925</td><td class="pos">12,147,975</td><td>6.80</td><td>122.80</td><td>128.94</td><td>119.12</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,100</td><td>12,303,750</td><td class="pos">18,816,450</td><td>80.15</td><td>37,774,425</td><td class="pos">28,987,950</td><td>13.90</td><td>80.15</td><td>84.16</td><td>77.75</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,150</td><td>19,233,000</td><td class="pos">16,000,800</td><td>44.20</td><td>25,703,625</td><td class="pos">25,230,750</td><td>28.50</td><td>44.20</td><td>46.41</td><td>42.87</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,200</td><td>37,209,075</td><td class="pos">24,253,875</td><td>20.80</td><td>17,457,450</td><td class="pos">20,458,950</td><td>55.00</td><td>20.80</td><td>21.84</td><td>20.18</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,250</td><td>25,369,275</td><td class="pos">17,499,000</td><td>8.60</td><td>3,817,200</td><td class="pos">4,279,050</td><td>92.90</td><td>8.60</td><td>9.03</td><td>8.34</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,300</td><td>20,561,250</td><td class="pos">10,627,650</td><td>3.85</td><td>2,602,425</td><td class="pos">3,487,050</td><td>137.85</td><td>3.85</td><td>4.04</td><td>3.73</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,350</td><td>11,685,000</td><td class="pos">7,823,700</td><td>1.95</td><td>345,000</td><td class="pos">491,250</td><td>185.70</td><td>1.95</td><td>2.05</td><td>1.89</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,400</td><td>12,973,800</td><td class="pos">5,837,100</td><td>1.25</td><td>374,100</td><td class="pos">429,525</td><td>235.55</td><td>1.25</td><td>1.31</td><td>1.21</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,450</td><td>4,985,100</td><td class="pos">2,814,450</td><td>0.95</td><td>55,275</td><td class="pos">48,600</td><td>285.55</td><td>0.95</td><td>1.00</td><td>0.92</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,500</td><td>15,734,400</td><td class="pos">3,778,500</td><td>0.80</td><td>184,800</td><td class="pos">130,575</td><td>333.80</td><td>0.80</td><td>0.84</td><td>0.78</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,550</td><td>4,429,650</td><td class="pos">2,059,575</td><td>0.70</td><td>12,225</td><td class="pos">4,275</td><td>384.45</td><td>0.70</td><td>0.73</td><td>0.68</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,600</td><td>8,464,875</td><td class="pos">3,044,475</td><td>0.65</td><td>48,825</td><td class="pos">10,125</td><td>433.70</td><td>0.65</td><td>0.68</td><td>0.63</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,650</td><td>2,796,300</td><td class="pos">1,219,350</td><td>0.70</td><td>5,250</td><td class="pos">1,800</td><td>482.20</td><td>0.70</td><td>0.73</td><td>0.68</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,700</td><td>9,072,975</td><td class="pos">2,952,525</td><td>0.70</td><td>27,300</td><td class="pos">4,275</td><td>535.00</td><td>0.70</td><td>0.73</td><td>0.68</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,750</td><td>2,441,325</td><td class="pos">1,225,350</td><td>0.65</td><td>3,000</td><td class="pos">975</td><td>593.35</td><td>0.65</td><td>0.68</td><td>0.63</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>25,800</td><td>6,950,550</td><td class="pos">2,067,225</td><td>0.65</td><td>16,950</td><td class="pos">1,575</td><td>632.00</td><td>0.65</td><td>0.68</td><td>0.63</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class="row-buy-ce"><td>25,850</td><td>1,685,925</td><td class="pos">1,776,150</td><td>0.60</td><td>1,950</td><td>0</td><td>645.05</td><td>0.60</td><td>0.63</td><td>0.58</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class=""><td>25,900</td><td>3,749,325</td><td class="pos">1,780,425</td><td>0.60</td><td>2,925</td><td class="pos">225</td><td>739.90</td><td>0.60</td><td>0.63</td><td>0.58</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class="row-buy-ce"><td>25,950</td><td>1,484,025</td><td class="pos">341,700</td><td>0.55</td><td>675</td><td></td><td>851.60</td><td>0.55</td><td>0.58</td><td>0.53</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class=""><td>26,000</td><td>9,100,950</td><td class="pos">1,050,750</td><td>0.50</td><td>38,700</td><td class="pos">14,100</td><td>830.45</td><td>0.50</td><td>0.53</td><td>0.48</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>26,050</td><td>802,575</td><td class="pos">301,350</td><td>0.45</td><td>975</td><td class="pos">225</td><td>844.80</td><td>0.45</td><td>0.47</td><td>0.44</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class=""><td>26,100</td><td>2,304,900</td><td class="pos">1,662,525</td><td>0.50</td><td>1,575</td><td class="pos">525</td><td>922.00</td><td>0.50</td><td>0.53</td><td>0.48</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class="row-buy-ce"><td>26,150</td><td>746,325</td><td class="pos">627,375</td><td>0.50</td><td>450</td><td></td><td>1,045.15</td><td>0.50</td><td>0.53</td><td>0.48</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class=""><td>26,200</td><td>1,726,350</td><td class="pos">988,125</td><td>0.45</td><td>1,500</td><td class="pos">225</td><td>1,000.30</td><td>0.45</td><td>0.47</td><td>0.44</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class="row-buy-ce"><td>26,250</td><td>604,050</td><td class="pos">365,625</td><td>0.50</td><td>600</td><td>0</td><td>1,104.60</td><td>0.50</td><td>0.53</td><td>0.48</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class="row-buy-ce"><td>26,300</td><td>985,725</td><td class="pos">126,150</td><td>0.40</td><td>150</td><td></td><td>1,238.00</td><td>0.40</td><td>0.42</td><td>0.39</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class="row-buy-ce"><td>26,350</td><td>500,250</td><td class="pos">168,675</td><td>0.45</td><td>450</td><td></td><td>1,624.40</td><td>0.45</td><td>0.47</td><td>0.44</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class="row-buy-ce"><td>26,400</td><td>1,252,200</td><td class="pos">462,450</td><td>0.40</td><td>375</td><td>0</td><td>1,272.60</td><td>0.40</td><td>0.42</td><td>0.39</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class="row-buy-ce"><td>26,450</td><td>769,725</td><td class="pos">601,875</td><td>0.40</td><td>750</td><td></td><td>1,384.40</td><td>0.40</td><td>0.42</td><td>0.39</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class=""><td>26,500</td><td>2,706,450</td><td class="pos">1,263,600</td><td>0.40</td><td>4,275</td><td class="pos">225</td><td>1,390.25</td><td>0.40</td><td>0.42</td><td>0.39</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class="row-buy-ce"><td>26,550</td><td>163,050</td><td class="pos">71,775</td><td>0.40</td><td>0</td><td></td><td>0.00</td><td>0.40</td><td>0.42</td><td>0.39</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class="row-buy-ce"><td>26,600</td><td>336,450</td><td class="pos">133,800</td><td>0.40</td><td>0</td><td></td><td>1,580.00</td><td>0.40</td><td>0.42</td><td>0.39</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class=""><td>26,650</td><td>78,300</td><td class="pos">36,450</td><td>0.35</td><td>225</td><td class="pos">150</td><td>1,536.95</td><td>0.35</td><td>0.37</td><td>0.34</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class="row-buy-ce"><td>26,700</td><td>228,000</td><td class="pos">126,150</td><td>0.35</td><td>0</td><td></td><td>1,551.25</td><td>0.35</td><td>0.37</td><td>0.34</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class="row-buy-ce"><td>26,750</td><td>89,100</td><td class="pos">44,775</td><td>0.35</td><td>150</td><td>0</td><td>1,596.95</td><td>0.35</td><td>0.37</td><td>0.34</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class="row-buy-ce"><td>26,800</td><td>170,400</td><td class="pos">77,625</td><td>0.35</td><td>0</td><td></td><td>0.00</td><td>0.35</td><td>0.37</td><td>0.34</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class="row-buy-ce"><td>26,850</td><td>53,325</td><td class="pos">20,400</td><td>0.35</td><td>75</td><td>0</td><td>1,706.70</td><td>0.35</td><td>0.37</td><td>0.34</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class="row-buy-ce"><td>26,900</td><td>102,300</td><td class="pos">63,975</td><td>0.35</td><td>0</td><td></td><td>0.00</td><td>0.35</td><td>0.37</td><td>0.34</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class="row-buy-ce"><td>26,950</td><td>67,125</td><td class="pos">49,500</td><td>0.35</td><td>0</td><td></td><td>0.00</td><td>0.35</td><td>0.37</td><td>0.34</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class=""><td>27,000</td><td>1,983,600</td><td class="pos">151,125</td><td>0.40</td><td>5,025</td><td class="pos">2,700</td><td>1,819.45</td><td>0.40</td><td>0.42</td><td>0.39</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>-</td><td>HOLD</td></tr><tr class="row-buy-ce"><td>27,050</td><td>117,675</td><td class="pos">27,225</td><td>0.30</td><td>150</td><td></td><td>2,189.70</td><td>0.30</td><td>0.32</td><td>0.29</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class="row-buy-ce"><td>27,100</td><td>186,375</td><td class="pos">67,800</td><td>0.35</td><td>0</td><td></td><td>0.00</td><td>0.35</td><td>0.37</td><td>0.34</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr><tr class="row-buy-ce"><td>27,150</td><td>1,480,500</td><td class="pos">266,625</td><td>0.40</td><td>0</td><td></td><td>0.00</td><td>0.40</td><td>0.42</td><td>0.39</td><td>09:30–11:00; 13:30–15:00</td><td>Hit SL/Target; else 15:10–15:20</td><td>OI↑(CE), OI↓/flat(PE)</td><td class="pos">BUY CE</td></tr>
+        </tbody>
+      </table>
+      <div class="indicators">
+        <h3 class="ind-h3 off">Indicators (intraday)</h3>
+        <ul>
+          <li><b>VWAP</b>: Above = bullish bias (prefer CE); Below = bearish (prefer PE)</li>
+          <li><b>EMA 9/21</b>: 9&gt;21 bullish; 9&lt;21 bearish; use with VWAP</li>
+          <li><b>RSI 14</b>: &gt;60 strong up; &lt;40 strong down; divergences for reversal</li>
+          <li><b>Open Interest (OI)</b>: Rising CE OI + price up strengthens CE trend; rising PE OI + price down strengthens PE trend</li>
+          <li><b>Risk</b>: SL 20–30% of premium; partials 40–60%; close by 15:10–15:20</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="toast-wrap"></div>
+  <button id="toTopBtn" class="to-top hidden" title="Scroll to top">Top</button>
+</body>
+</html>
